@@ -2,7 +2,8 @@ pipeline {
     agent any
     
     environment {
-        AWS_DEFAULT_REGION = 'us-east-1' // Update with your desired AWS region
+        AWS_DEFAULT_REGION = "us-east-1" // Update with your desired AWS region
+        AWS_ACCOUNT_ID = "339712791908" // Update with your AWS account ID
     }
 
     stages {
