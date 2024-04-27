@@ -17,8 +17,12 @@ pipeline {
                     "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}",
                     "AWS_DEFAULT_REGION=${env.AWS_DEFAULT_REGION}"
                 ]) {
-                    // Docker commands executed within this block
-                    sh 'docker login -u AWS -p $(aws ecr get-login-password --region us-east-1) 339712791908.dkr.ecr.us-east-1.amazonaws.com'
+                    // Get ECR login password and login to Docker
+                    script {
+                        def ecrLogin = sh(script: 'aws ecr get-login-password --region us-east-1', returnStdout: true).trim()
+                        sh "echo ${ecrLogin} | docker login -u AWS --password-stdin 339712791908.dkr.ecr.us-east-1.amazonaws.com"
+                    }
+                    // Build and push Docker image
                     sh 'docker build -t my-ecr .'
                     sh 'docker tag my-ecr:latest 339712791908.dkr.ecr.us-east-1.amazonaws.com/my-ecr:""$BUILD_ID""'
                     sh 'docker push 339712791908.dkr.ecr.us-east-1.amazonaws.com/my-ecr:""$BUILD_ID""'
