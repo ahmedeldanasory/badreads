@@ -1,41 +1,31 @@
 pipeline {
     agent any
+    
+    environment {
+        AWS_DEFAULT_REGION = 'us-east-1' // Update with your desired AWS region
+    }
 
     stages {
-        stage('Build') {
+        stage('Publish to ECR') {
             steps {
-                echo 'printenv'
-            }
-        }
-
-        stage('Publish ECR') {
-            steps {
-                echo 'Pushing images to ECR...'
-                // Set AWS environment variables within this block
-                withEnv([
-                    "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}",
-                    "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}",
-                    "AWS_DEFAULT_REGION=${env.AWS_DEFAULT_REGION}"
-                ]) {
-                    // Script block to retrieve ECR login password using AWS SDK for Python (Boto3)
-                    script {
-                        def pythonScript = '''
-                            import boto3
+                script {
+                    // Retrieve ECR login password using AWS SDK for Python (Boto3)
+                    def pythonScript = """
+                        import boto3
                         
-                            client = boto3.client('ecr')
-                            token = client.get_authorization_token()
-                            print(token['authorizationData'][0]['authorizationToken'])
-                        '''
-                        def ecrLogin = sh(script: "python -c '${pythonScript}'", returnStdout: true).trim()
-                        sh "echo ${ecrLogin} | base64 -d | docker login -u AWS --password-stdin 339712791908.dkr.ecr.us-east-1.amazonaws.com"
-                    }
-
+                        client = boto3.client('ecr')
+                        token = client.get_authorization_token()
+                        print(token['authorizationData'][0]['authorizationToken'])
+                    """
+                    def ecrLogin = sh(script: "python -c '${pythonScript}'", returnStdout: true).trim()
+                    
+                    // Login to ECR
+                    sh "echo ${ecrLogin} | base64 -d | docker login -u AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
+                    
                     // Build and push Docker image
-                    sh '/full/path/to/python -c "import boto3; client = boto3.client(\'ecr\'); token = client.get_authorization_token(); print(token[\'authorizationData\'][0][\'authorizationToken\'])"'
-
                     sh 'docker build -t my-ecr .'
-                    sh 'docker tag my-ecr:latest 339712791908.dkr.ecr.us-east-1.amazonaws.com/my-ecr:""$BUILD_ID""'
-                    sh 'docker push 339712791908.dkr.ecr.us-east-1.amazonaws.com/my-ecr:""$BUILD_ID""'
+                    sh 'docker tag my-ecr:latest ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com/my-ecr:"$BUILD_ID"'
+                    sh 'docker push ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com/my-ecr:"$BUILD_ID"'
                 }
             }
         }
