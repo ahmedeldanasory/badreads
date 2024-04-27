@@ -2,45 +2,23 @@ pipeline {
     agent any
 
     stages {
-        stage('Preparation') {
+        stage('Build') {
             steps {
-                echo 'prepare github repo....'
-                git branch: 'master', url: 'https://github.com/ahmedeldanasory/badreads.git'
+                echo 'printenv'
             }
         }
-        stage('Build-client') {
-            steps {
-                echo 'building client image....'
-                sh "docker build badreads-frontend/. -t ahmedeldanasoury/client:${env.BUILD_NUMBER}"
-            }
-        }
+    
 
-        stage('Build-server') {
-            steps {
-                echo 'building server image...'
-                sh "docker build badreads-backend/. -t ahmedeldanasoury/server:${env.BUILD_ID}"
-            }
-        }
-
-        stage('Push to ECR') {
+        stage('Publish ECR') {
             steps {
                 echo 'Pushing images to ECR...'
-                withCredentials([awsAccessKeys(credentialsId: 'aws-credentials', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh "aws ecr get-login-password --region your-region | docker login --username AWS --password-stdin your-ecr-registry-uri"
-                    sh "docker push your-ecr-registry-uri/ahmedeldanasoury/client:${env.BUILD_NUMBER}"
-                    sh "docker push your-ecr-registry-uri/ahmedeldanasoury/server:${env.BUILD_ID}"
+                withEnv(["AWS_ACCESS_KEY_ID-$(env.AWS_ACCESS_KEY_ID)", "AWS_SECRET_ACCESS_KEY-$(env.AWS_SECRET_ACCESS_KEY)", "AWS_DEFAULT_REGION-$(env.AWS_DEFAULT_REGION)"]) {
+                    sh 'docker login -u AWS -p $(aws ecr get-login-password --region us-east-1) 339712791908.dkr.ecr.us-east-1.amazonaws.com'
+                    sh 'docker build -t my-ecr .'
+                    sh 'docker tag my-ecr:latest 339712791908.dkr.ecr.us-east-1.amazonaws.com/my-ecr:""$BUILD_ID""'
+                    sh 'docker push 339712791908.dkr.ecr.us-east-1.amazonaws.com/my-ecr:""$BUILD_ID""'
                 }
             }
         }
-
-        stage('Updating deployment files'){
-            steps {
-                echo 'replacing old images with the new one'
-                sh "sed -i \"s|image:.*|image: your-ecr-registry-uri/ahmedeldanasoury/client:${env.BUILD_NUMBER}|g\" k8s/frontend-deployment.yaml"
-                sh "sed -i \"s|image:.*|image: your-ecr-registry-uri/ahmedeldanasoury/server:${env.BUILD_ID}|g\" k8s/backend-deployment.yaml"
-            }
-        }
-
-        // Add deployment stage if needed
     }
 }
