@@ -7,12 +7,17 @@ pipeline {
                 echo 'printenv'
             }
         }
-    
 
         stage('Publish ECR') {
             steps {
                 echo 'Pushing images to ECR...'
-                withEnv(["AWS_ACCESS_KEY_ID-$(env.AWS_ACCESS_KEY_ID)", "AWS_SECRET_ACCESS_KEY-$(env.AWS_SECRET_ACCESS_KEY)", "AWS_DEFAULT_REGION-$(env.AWS_DEFAULT_REGION)"]) {
+                // Set AWS environment variables within this block
+                withEnv([
+                    "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}",
+                    "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}",
+                    "AWS_DEFAULT_REGION=${env.AWS_DEFAULT_REGION}"
+                ]) {
+                    // Docker commands executed within this block
                     sh 'docker login -u AWS -p $(aws ecr get-login-password --region us-east-1) 339712791908.dkr.ecr.us-east-1.amazonaws.com'
                     sh 'docker build -t my-ecr .'
                     sh 'docker tag my-ecr:latest 339712791908.dkr.ecr.us-east-1.amazonaws.com/my-ecr:""$BUILD_ID""'
